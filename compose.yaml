@@ -4,11 +4,11 @@ services:
     container_name: aws-word-explainer-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: word_explainer
-      POSTGRES_USER: word_explainer
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${DB_NAME:-word_explainer}
+      POSTGRES_USER: ${DB_USER:-word_explainer}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-${POSTGRES_PASSWORD:?Set DB_PASSWORD in .env}}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:

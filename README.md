@@ -26,7 +26,7 @@ DBコンテナへの接続確認:
 docker compose exec db psql -U word_explainer -d word_explainer
 ```
 
-`.env` のパスワードはローカル開発専用です。Gitへコミットしないでください。
+`.env` の `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASSWORD` がAPIのDB接続設定です。Composeも同じ設定を使います。パスワードはローカル開発専用とし、Gitへコミットしないでください。
 
 ## curlで疎通確認
 
@@ -38,12 +38,20 @@ curl -i http://localhost:8080/health
 
 応答例: `{"status":"ok"}`
 
-Issue #1で定義したAPIのパスとHTTPメソッドも登録済みです。現段階では機能を実装していないため、APIを呼び出すと `501 Not Implemented` が返ります。
+説明生成APIはまだ未実装のため、呼び出すと `501 Not Implemented` が返ります。
 
 ```bash
 curl -i -X POST http://localhost:8080/api/explanations/generate \
   -H 'Content-Type: application/json' \
   -d '{"word":"サブネット"}'
+```
+
+`POST /api/entries` は、DBにテーブルとカテゴリを用意した後に使用できます。成功すると `201 Created` と登録内容・IDを返します。未登録カテゴリや不正な入力には、`error.code` と `error.message` を含むエラー応答を返します。
+
+```bash
+curl -i -X POST http://localhost:8080/api/entries \
+  -H 'Content-Type: application/json' \
+  -d '{"word":"サブネット","category_id":1,"explanation":"ネットワークを分割した領域です。"}'
 ```
 
 FastAPIの対話型APIドキュメントは [http://localhost:8080/docs](http://localhost:8080/docs) で確認できます。
@@ -57,4 +65,4 @@ GET    /api/categories
 DELETE /api/entries/{id}
 ```
 
-PostgreSQLコンテナの起動設定はありますが、FastAPIからのDB接続、テーブル作成、GPT連携、登録・検索・削除の処理はまだありません。
+PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録APIは実装済みです。GPT連携、検索、カテゴリ一覧、削除の処理はまだありません。
