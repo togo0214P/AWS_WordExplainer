@@ -13,7 +13,6 @@ source .venv/bin/activate
 pip install -r requirements.txt
 docker compose up -d db
 docker compose ps
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
 ```
 
 Ubuntuで `ensurepip is not available` と表示された場合は、Pythonのvenvパッケージを追加してから再実行します（例: `sudo apt install python3.12-venv`）。Docker Compose v2も必要です。
@@ -25,6 +24,60 @@ DBコンテナへの接続確認:
 ```bash
 docker compose exec db psql -U word_explainer -d word_explainer
 ```
+
+## エントリー保存APIの疎通確認
+
+DBコンテナが起動している状態で、リポジトリのルートからスキーマを適用します。
+
+```bash
+docker compose exec -T db psql -U word_explainer -d word_explainer \
+  -v ON_ERROR_STOP=1 < db/schema.sql
+```
+
+カテゴリを登録し、表示されたIDを控えます。
+
+```bash
+docker compose exec db psql -U word_explainer -d word_explainer
+```
+
+psqlで次を実行します。
+
+```sql
+INSERT INTO categories (name) VALUES ('ネットワーク') RETURNING id;
+```
+
+`\q`でpsqlを終了し、APIサーバーを起動します。
+
+```bash
+source .venv/bin/activate
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
+```
+
+別のターミナルから保存APIを呼びます。`category_id`は、カテゴリ登録時に表示されたIDに置き換えてください。
+
+```bash
+curl -i -X POST http://localhost:8080/api/entries \
+  -H 'Content-Type: application/json' \
+  -d '{"word":"サブネット","category_id":1,"explanation":"ネットワークを分割した領域です。"}'
+```
+
+`201 Created`と登録IDを含むJSONが返れば登録成功です。同じcurlをもう一度実行すると、同じ単語を複数件登録できることも確認できます。
+
+psqlで保存内容を確認します。
+
+```bash
+docker compose exec db psql -U word_explainer -d word_explainer
+```
+
+```sql
+SELECT e.id, e.word, c.name AS category, e.explanation
+FROM entries AS e
+JOIN categories AS c ON c.id = e.category_id
+WHERE e.word = 'サブネット'
+ORDER BY e.id;
+```
+
+確認後はpsqlで `\q` を実行し、APIサーバーは `Ctrl+C` で停止します。
 
 `.env` の `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASSWORD` がAPIのDB接続設定です。Composeも同じ設定を使います。パスワードはローカル開発専用とし、Gitへコミットしないでください。
 
