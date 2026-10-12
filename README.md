@@ -121,13 +121,26 @@ docker compose exec db psql -U word_explainer -d word_explainer \
   -c "SELECT id, deleted_at, updated_at FROM entries WHERE id = 1;"
 ```
 
-説明生成APIはまだ未実装のため、呼び出すと `501 Not Implemented` が返ります。
+説明生成APIは現在モックで動作します。Gemini APIキーや外部通信は不要です。モックは登録済みカテゴリのうちIDが最小のカテゴリを選び、入力単語を含む確認用の説明を返します。APIからは `entries` に保存しません。
 
 ```bash
 curl -i -X POST http://localhost:8080/api/explanations/generate \
   -H 'Content-Type: application/json' \
   -d '{"word":"サブネット"}'
 ```
+
+`200 OK` と、入力単語・カテゴリID・カテゴリ名・説明を含むJSONが返ります。カテゴリIDとカテゴリ名は、現在のDBに登録されているカテゴリに応じて変わります。
+
+空の単語や100文字を超える単語は `400 Bad Request`、カテゴリが未登録の場合は `503 Service Unavailable` を返します。生成候補を確認した後、利用者が承諾した内容を `POST /api/entries` に送ると保存されます。
+
+生成APIが保存処理を行わないことは、呼び出し前後の登録件数で確認できます。
+
+```bash
+docker compose exec db psql -U word_explainer -d word_explainer \
+  -c "SELECT COUNT(*) FROM entries;"
+```
+
+上のSQLを実行して件数を記録し、生成APIを呼んだ後にもう一度実行します。件数が変わらなければ、生成APIでは保存されていません。
 
 `POST /api/entries` は、DBにテーブルとカテゴリを用意した後に使用できます。成功すると `201 Created` と登録内容・IDを返します。未登録カテゴリや不正な入力には、`error.code` と `error.message` を含むエラー応答を返します。
 
@@ -142,10 +155,18 @@ FastAPIの対話型APIドキュメントは [http://localhost:8080/docs](http://
 ほかの登録済みパス:
 
 ```text
+POST   /api/explanations/generate
 POST   /api/entries
 GET    /api/entries?word=...
 GET    /api/categories
 DELETE /api/entries/{id}
 ```
 
-PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索・論理削除APIとカテゴリ一覧APIは実装済みです。GPT連携はまだありません。
+APIテストは開発用依存関係をインストールしてから実行できます。
+
+```bash
+pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
+```
+
+PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索・論理削除API、カテゴリ一覧API、モックを使った説明生成APIを実装しています。Gemini APIへの接続は、モックでの機能検証後に行います。
