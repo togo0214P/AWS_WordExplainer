@@ -6,9 +6,17 @@ import psycopg
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-from app.repositories.entries import CategoryNotFoundError, create_entry as save_entry
+from app.repositories.entries import (
+    CategoryNotFoundError,
+    create_entry as save_entry,
+    search_entries as find_entries,
+)
 from app.responses import api_error, not_implemented
-from app.schemas.entries import CreateEntryRequest, CreateEntryResponse
+from app.schemas.entries import (
+    CreateEntryRequest,
+    CreateEntryResponse,
+    EntrySearchResponse,
+)
 
 
 router = APIRouter(tags=["entries"])
@@ -46,13 +54,34 @@ def create_entry(request: CreateEntryRequest) -> CreateEntryResponse | JSONRespo
         )
 
 
-@router.get("/api/entries", status_code=status.HTTP_501_NOT_IMPLEMENTED)
-async def search_entries(
+@router.get(
+    "/api/entries",
+    status_code=status.HTTP_200_OK,
+    response_model=EntrySearchResponse,
+)
+def search_entries(
     word: str | None = None,
     category_id: int | None = None,
-) -> JSONResponse:
-    """Search entries (implementation pending)."""
-    return not_implemented()
+) -> EntrySearchResponse | JSONResponse:
+    """Search active entries by an optional partial word and category ID."""
+    try:
+        return EntrySearchResponse(
+            entries=find_entries(word=word, category_id=category_id)
+        )
+    except psycopg.OperationalError:
+        logger.exception("PostgreSQL connection failed while searching entries")
+        return api_error(
+            code="DATABASE_UNAVAILABLE",
+            message="データベースに接続できません。",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except psycopg.Error:
+        logger.exception("PostgreSQL error while searching entries")
+        return api_error(
+            code="DATABASE_ERROR",
+            message="データベースの処理に失敗しました。",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @router.delete(

@@ -22,3 +22,14 @@ class CreateEntryResponse(BaseModel):
     word: str
     category_id: int
     explanation: str
+
+
+class EntrySearchResult(BaseModel):
+    id: int
+    word: str
+    category_id: int
+    explanation: str
+
+
+class EntrySearchResponse(BaseModel):
+    entries: list[EntrySearchResult]
