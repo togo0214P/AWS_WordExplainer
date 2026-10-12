@@ -108,6 +108,19 @@ curl -i --get http://localhost:8080/api/entries \
 curl -i 'http://localhost:8080/api/entries?category_id=1'
 ```
 
+エントリーを論理削除するには、対象のIDを指定します。成功時は`204 No Content`が返り、行はDBに残りますが、通常の検索結果には含まれなくなります。
+
+```bash
+curl -i -X DELETE http://localhost:8080/api/entries/1
+```
+
+削除日時はpsqlで確認できます。
+
+```bash
+docker compose exec db psql -U word_explainer -d word_explainer \
+  -c "SELECT id, deleted_at, updated_at FROM entries WHERE id = 1;"
+```
+
 説明生成APIはまだ未実装のため、呼び出すと `501 Not Implemented` が返ります。
 
 ```bash
@@ -135,4 +148,4 @@ GET    /api/categories
 DELETE /api/entries/{id}
 ```
 
-PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索APIとカテゴリ一覧APIは実装済みです。GPT連携と削除の処理はまだありません。
+PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索・論理削除APIとカテゴリ一覧APIは実装済みです。GPT連携はまだありません。
