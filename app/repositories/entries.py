@@ -12,6 +12,10 @@ class CategoryNotFoundError(Exception):
     """Raised when an entry refers to a category that does not exist."""
 
 
+class EntryNotFoundError(Exception):
+    """Raised when an active entry with the requested ID does not exist."""
+
+
 def create_entry(entry: CreateEntryRequest) -> CreateEntryResponse:
     """Insert an entry after confirming its category exists."""
     with get_connection() as connection:
@@ -79,3 +83,22 @@ def search_entries(
         )
         for row in rows
     ]
+
+
+def soft_delete_entry(entry_id: int) -> None:
+    """Mark an active entry as deleted without removing its database row."""
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE entries
+                SET deleted_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                  AND deleted_at IS NULL
+                RETURNING id
+                """,
+                (entry_id,),
+            )
+            if cursor.fetchone() is None:
+                raise EntryNotFoundError
