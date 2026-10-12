@@ -33,5 +33,5 @@ class MockExplanationGenerator:
 
 
 def get_explanation_generator() -> ExplanationGenerator:
-    """Provide the current generator; replace with GPT after mock validation."""
+    """Provide the current generator; replace with Gemini after mock validation."""
     return MockExplanationGenerator()

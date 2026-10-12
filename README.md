@@ -121,7 +121,7 @@ docker compose exec db psql -U word_explainer -d word_explainer \
   -c "SELECT id, deleted_at, updated_at FROM entries WHERE id = 1;"
 ```
 
-説明生成APIは現在モックで動作します。GPT APIキーや外部通信は不要です。モックは登録済みカテゴリのうちIDが最小のカテゴリを選び、入力単語を含む確認用の説明を返します。APIからは `entries` に保存しません。
+説明生成APIは現在モックで動作します。Gemini APIキーや外部通信は不要です。モックは登録済みカテゴリのうちIDが最小のカテゴリを選び、入力単語を含む確認用の説明を返します。APIからは `entries` に保存しません。
 
 ```bash
 curl -i -X POST http://localhost:8080/api/explanations/generate \
@@ -169,4 +169,4 @@ pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
 ```
 
-PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索・論理削除API、カテゴリ一覧API、モックを使った説明生成APIを実装しています。実際のGPT API接続は、モックでの機能検証後に行います。
+PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索・論理削除API、カテゴリ一覧API、モックを使った説明生成APIを実装しています。Gemini APIへの接続は、モックでの機能検証後に行います。
