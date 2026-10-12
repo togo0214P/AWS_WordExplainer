@@ -34,19 +34,21 @@ docker compose exec -T db psql -U word_explainer -d word_explainer \
   -v ON_ERROR_STOP=1 < db/schema.sql
 ```
 
-カテゴリを登録し、表示されたIDを控えます。
+初期カテゴリを登録します。既に登録済みの名前は追加されません。
 
 ```bash
-docker compose exec db psql -U word_explainer -d word_explainer
+docker compose exec -T db psql -U word_explainer -d word_explainer \
+  -v ON_ERROR_STOP=1 < db/seed.sql
 ```
 
-psqlで次を実行します。
+登録されたカテゴリとIDを確認します。
 
-```sql
-INSERT INTO categories (name) VALUES ('ネットワーク') RETURNING id;
+```bash
+docker compose exec db psql -U word_explainer -d word_explainer \
+  -c "SELECT id, name FROM categories ORDER BY id;"
 ```
 
-`\q`でpsqlを終了し、APIサーバーを起動します。
+保存APIを試すときは、表示されたカテゴリIDを使います。APIサーバーを起動します。
 
 ```bash
 source .venv/bin/activate
@@ -91,6 +93,12 @@ curl -i http://localhost:8080/health
 
 応答例: `{"status":"ok"}`
 
+登録済みカテゴリは次のAPIで取得できます。カテゴリが0件の場合も `200 OK` と `{"categories": []}` を返すため、案内表示はView側で行います。
+
+```bash
+curl -i http://localhost:8080/api/categories
+```
+
 説明生成APIはまだ未実装のため、呼び出すと `501 Not Implemented` が返ります。
 
 ```bash
@@ -118,4 +126,4 @@ GET    /api/categories
 DELETE /api/entries/{id}
 ```
 
-PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録APIは実装済みです。GPT連携、検索、カテゴリ一覧、削除の処理はまだありません。
+PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録APIとカテゴリ一覧APIは実装済みです。GPT連携、検索、削除の処理はまだありません。
