@@ -99,6 +99,15 @@ curl -i http://localhost:8080/health
 curl -i http://localhost:8080/api/categories
 ```
 
+エントリーは、単語の部分一致やカテゴリIDで絞り込めます。どちらも指定しない場合は未削除のエントリーを一覧で返します。
+
+```bash
+curl -i --get http://localhost:8080/api/entries \
+  --data-urlencode 'word=サブネット'
+
+curl -i 'http://localhost:8080/api/entries?category_id=1'
+```
+
 説明生成APIはまだ未実装のため、呼び出すと `501 Not Implemented` が返ります。
 
 ```bash
@@ -126,4 +135,4 @@ GET    /api/categories
 DELETE /api/entries/{id}
 ```
 
-PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録APIとカテゴリ一覧APIは実装済みです。GPT連携、検索、削除の処理はまだありません。
+PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索APIとカテゴリ一覧APIは実装済みです。GPT連携と削除の処理はまだありません。
