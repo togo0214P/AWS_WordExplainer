@@ -1,6 +1,8 @@
 """HTTP-level tests for explanation generation using a mock provider."""
 
+import json
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import psycopg
@@ -10,8 +12,13 @@ from app.main import app
 from app.repositories import entries
 from app.routers import explanations
 from app.schemas.categories import CategoryResponse
-from app.schemas.explanations import GeneratedContent
-from app.services.explanation_generator import get_explanation_generator
+from app.schemas.explanations import GeneratedCategory, GeneratedContent
+from app.services.explanation_generator import (
+    GeminiExplanationGenerator,
+    GenerationUnavailableError,
+    build_generation_prompt,
+    get_explanation_generator,
+)
 
 
 CATEGORIES = [
@@ -23,7 +30,7 @@ CATEGORIES = [
 class StubGenerator:
     def __init__(self, result: object = None, error: Exception | None = None) -> None:
         self.result = result or GeneratedContent(
-            category="コンピューティング",
+            category=GeneratedCategory(id=1, name="コンピューティング"),
             explanation="CPUなどの計算処理を提供する分野です。",
         )
         self.error = error
@@ -126,8 +133,18 @@ class GenerateExplanationApiTests(unittest.TestCase):
 
     def test_rejects_unregistered_category_and_malformed_content(self) -> None:
         for result in (
-            GeneratedContent(category="未登録", explanation="説明"),
-            {"category": "コンピューティング", "explanation": "   "},
+            GeneratedContent(
+                category=GeneratedCategory(id=99, name="未登録"),
+                explanation="説明",
+            ),
+            GeneratedContent(
+                category=GeneratedCategory(id=2, name="コンピューティング"),
+                explanation="説明",
+            ),
+            {
+                "category": {"id": 1, "name": "コンピューティング"},
+                "explanation": "   ",
+            },
         ):
             with self.subTest(result=result):
                 self.generator = StubGenerator(result=result)
@@ -151,6 +168,83 @@ class GenerateExplanationApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["error"]["code"], "GENERATION_FAILED")
+
+    def test_returns_service_unavailable_when_generator_has_no_api_key(self) -> None:
+        self.generator = StubGenerator(error=GenerationUnavailableError())
+
+        response = self.client.post(
+            "/api/explanations/generate",
+            json={"word": "EC2"},
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json()["error"]["code"],
+            "GENERATION_UNAVAILABLE",
+        )
+
+
+class GeminiGeneratorTests(unittest.TestCase):
+    def test_builds_prompt_with_registered_category_ids_and_names(self) -> None:
+        prompt = build_generation_prompt("EC2", CATEGORIES)
+
+        self.assertIn("EC2", prompt)
+        self.assertIn('"id": 1', prompt)
+        self.assertIn('"name": "コンピューティング"', prompt)
+        self.assertIn("解説対象のデータ", prompt)
+
+    def test_calls_gemini_with_structured_json_schema_and_parses_result(self) -> None:
+        returned_json = json.dumps(
+            {
+                "category": {"id": 1, "name": "コンピューティング"},
+                "explanation": "CPUなどの計算処理を提供する分野です。",
+            },
+            ensure_ascii=False,
+        )
+        calls: list[dict[str, object]] = []
+
+        def generate_content(**kwargs: object) -> SimpleNamespace:
+            calls.append(dict(kwargs))
+            return SimpleNamespace(text=returned_json)
+
+        models = SimpleNamespace(generate_content=generate_content)
+        client = SimpleNamespace(models=models, close=lambda: None)
+        generator = GeminiExplanationGenerator("test-key", "test-model")
+
+        with patch(
+            "app.services.explanation_generator.genai.Client",
+            return_value=client,
+        ) as client_factory:
+            result = generator.generate("EC2", CATEGORIES)
+
+        self.assertEqual(result.category.id, 1)
+        self.assertEqual(result.category.name, "コンピューティング")
+        self.assertEqual(result.explanation, "CPUなどの計算処理を提供する分野です。")
+        client_factory.assert_called_once()
+        self.assertEqual(client_factory.call_args.kwargs["api_key"], "test-key")
+        self.assertEqual(
+            client_factory.call_args.kwargs["http_options"].timeout,
+            30_000,
+        )
+        self.assertEqual(calls[0]["model"], "test-model")
+        self.assertIn("EC2", calls[0]["contents"])
+        self.assertEqual(
+            calls[0]["config"].response_mime_type,
+            "application/json",
+        )
+        self.assertIs(calls[0]["config"].response_schema, GeneratedContent)
+
+    def test_factory_returns_gemini_generator(self) -> None:
+        self.assertIsInstance(get_explanation_generator(), GeminiExplanationGenerator)
+
+    def test_does_not_create_gemini_client_without_api_key(self) -> None:
+        generator = GeminiExplanationGenerator("", "test-model")
+
+        with patch("app.services.explanation_generator.genai.Client") as client_factory:
+            with self.assertRaises(GenerationUnavailableError):
+                generator.generate("EC2", CATEGORIES)
+
+        client_factory.assert_not_called()
 
 
 if __name__ == "__main__":
