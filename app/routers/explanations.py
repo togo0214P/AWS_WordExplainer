@@ -5,8 +5,10 @@ import logging
 import psycopg
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
+from google.genai.errors import APIError
 from pydantic import ValidationError
 
+from app.config import settings
 from app.repositories.categories import list_categories as fetch_categories
 from app.responses import api_error
 from app.schemas.explanations import (
@@ -73,6 +75,16 @@ def generate_explanation(
     except ValidationError:
         logger.warning("Explanation generator returned an invalid response")
         return _generation_failed()
+    except APIError as error:
+        message = _safe_upstream_error_message(error.message)
+        logger.error(
+            "Gemini API request failed "
+            "(http_status=%s, api_status=%s, message=%s)",
+            error.code,
+            error.status,
+            message,
+        )
+        return _generation_failed()
     except Exception as error:
         logger.error("Explanation generation failed (%s)", type(error).__name__)
         return _generation_failed()
@@ -104,3 +116,11 @@ def _generation_failed() -> JSONResponse:
         message="説明を生成できませんでした。時間をおいて再度お試しください。",
         status_code=status.HTTP_502_BAD_GATEWAY,
     )
+
+
+def _safe_upstream_error_message(message: object) -> str:
+    """Return a one-line, bounded upstream message with secrets redacted."""
+    safe_message = str(message or "").replace("\r", " ").replace("\n", " ")
+    if settings.gemini_api_key:
+        safe_message = safe_message.replace(settings.gemini_api_key, "[REDACTED]")
+    return safe_message[:500]

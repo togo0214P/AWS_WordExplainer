@@ -46,7 +46,7 @@ class GeminiExplanationGenerator:
         client = genai.Client(
             api_key=self.api_key,
             http_options=types.HttpOptions(
-                timeout=30_000,
+                timeout=60_000,
                 retry_options=types.HttpRetryOptions(attempts=1),
             ),
         )

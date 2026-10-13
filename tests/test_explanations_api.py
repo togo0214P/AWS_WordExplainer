@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import psycopg
+from google.genai.errors import APIError
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -169,6 +170,30 @@ class GenerateExplanationApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["error"]["code"], "GENERATION_FAILED")
 
+    def test_logs_gemini_api_error_details_without_changing_response(self) -> None:
+        error = APIError(
+            503,
+            {
+                "error": {
+                    "status": "UNAVAILABLE",
+                    "message": "Gemini service is temporarily unavailable",
+                }
+            },
+        )
+        self.generator = StubGenerator(error=error)
+
+        with self.assertLogs(explanations.logger, level="ERROR") as captured:
+            response = self.client.post(
+                "/api/explanations/generate",
+                json={"word": "EC2"},
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["error"]["code"], "GENERATION_FAILED")
+        self.assertIn("http_status=503", captured.output[0])
+        self.assertIn("api_status=UNAVAILABLE", captured.output[0])
+        self.assertIn("Gemini service is temporarily unavailable", captured.output[0])
+
     def test_returns_service_unavailable_when_generator_has_no_api_key(self) -> None:
         self.generator = StubGenerator(error=GenerationUnavailableError())
 
@@ -224,7 +249,7 @@ class GeminiGeneratorTests(unittest.TestCase):
         self.assertEqual(client_factory.call_args.kwargs["api_key"], "test-key")
         self.assertEqual(
             client_factory.call_args.kwargs["http_options"].timeout,
-            30_000,
+            60_000,
         )
         self.assertEqual(calls[0]["model"], "test-model")
         self.assertIn("EC2", calls[0]["contents"])
