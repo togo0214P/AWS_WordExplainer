@@ -7,7 +7,7 @@
 リポジトリのルートでローカル設定ファイルを作り、仮想環境と依存パッケージを準備します。
 
 ```bash
-cp .env.example .env
+cp -n .env.example .env
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -81,7 +81,7 @@ ORDER BY e.id;
 
 確認後はpsqlで `\q` を実行し、APIサーバーは `Ctrl+C` で停止します。
 
-`.env` の `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASSWORD` がAPIのDB接続設定です。Composeも同じ設定を使います。パスワードはローカル開発専用とし、Gitへコミットしないでください。
+`.env` の `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASSWORD` がAPIのDB接続設定です。Composeも同じ設定を使います。Gemini連携では `GEMINI_API_KEY` と `GEMINI_MODEL` を使います。作成したAPIキーはローカルの `.env` に設定し、`.env.example` やGitHub、ソースコードに書かないでください。`.env` はGit管理対象外です。`cp -n` は既存の `.env` を上書きしません。
 
 ## curlで疎通確認
 
@@ -121,7 +121,7 @@ docker compose exec db psql -U word_explainer -d word_explainer \
   -c "SELECT id, deleted_at, updated_at FROM entries WHERE id = 1;"
 ```
 
-説明生成APIは現在モックで動作します。Gemini APIキーや外部通信は不要です。モックは登録済みカテゴリのうちIDが最小のカテゴリを選び、入力単語を含む確認用の説明を返します。APIからは `entries` に保存しません。
+説明生成APIはGemini APIを呼び出して説明候補を返します。`GEMINI_API_KEY` が `.env` に設定されている必要があります。候補の生成だけでは `entries` に保存されません。
 
 ```bash
 curl -i -X POST http://localhost:8080/api/explanations/generate \
@@ -130,6 +130,15 @@ curl -i -X POST http://localhost:8080/api/explanations/generate \
 ```
 
 `200 OK` と、入力単語・カテゴリID・カテゴリ名・説明を含むJSONが返ります。カテゴリIDとカテゴリ名は、現在のDBに登録されているカテゴリに応じて変わります。
+
+実API接続を確認するには、プロジェクトルートの `.env` に次の設定を入れてからサーバーを起動します。`GEMINI_MODEL` は例として現在のFlashモデルを指定しています。
+
+```env
+GEMINI_API_KEY=自分のGemini APIキー
+GEMINI_MODEL=gemini-3.8-flash
+```
+
+生成された候補のカテゴリID・名前が、登録済みカテゴリと一致することをサーバーが確認して返します。Geminiの応答が不正、または外部APIに失敗した場合は `502 Bad Gateway`、キー未設定の場合は `503 Service Unavailable` です。
 
 空の単語や100文字を超える単語は `400 Bad Request`、カテゴリが未登録の場合は `503 Service Unavailable` を返します。生成候補を確認した後、利用者が承諾した内容を `POST /api/entries` に送ると保存されます。
 
@@ -162,11 +171,11 @@ GET    /api/categories
 DELETE /api/entries/{id}
 ```
 
-APIテストは開発用依存関係をインストールしてから実行できます。
+APIテストは開発用依存関係をインストールしてから実行できます。Gemini SDKはテスト内でモックするため、テスト実行ではAPIキーや外部通信は使いません。
 
 ```bash
 pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
 ```
 
-PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索・論理削除API、カテゴリ一覧API、モックを使った説明生成APIを実装しています。Gemini APIへの接続は、モックでの機能検証後に行います。
+PostgreSQL接続設定と接続ヘルパー、および `db/schema.sql` のテーブル定義を用意しています。テーブル作成やAPIからのDB接続確認は開発者が手元で実行します。エントリー登録・検索・論理削除API、カテゴリ一覧API、Gemini APIを使った説明生成APIを実装しています。

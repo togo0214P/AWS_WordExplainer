@@ -18,6 +18,8 @@ class Settings:
     db_name: str = os.getenv("DB_NAME", "word_explainer")
     db_user: str = os.getenv("DB_USER", "word_explainer")
     db_password: str = os.getenv("DB_PASSWORD", os.getenv("POSTGRES_PASSWORD", ""))
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "").strip()
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
 
 
 settings = Settings()
