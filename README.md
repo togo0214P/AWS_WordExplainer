@@ -17,7 +17,7 @@ docker compose ps
 
 Ubuntuで `ensurepip is not available` と表示された場合は、Pythonのvenvパッケージを追加してから再実行します（例: `sudo apt install python3.12-venv`）。Docker Compose v2も必要です。
 
-APIサーバーは `127.0.0.1:8080`、PostgreSQLは `127.0.0.1:5432` で起動します。停止するときはAPIサーバーで `Ctrl+C` を押し、DBは `docker compose stop db` で停止します。`docker compose down` はコンテナを削除しますが、DBデータのボリュームは保持します。
+APIサーバーは `127.0.0.1:8080`、PostgreSQLは `127.0.0.1:5432` で起動します。APIサーバーはリポジトリのルートで `make run` を実行すると起動します。ログは実行したターミナルに表示され、ソース変更時は自動で再起動します。停止するときはAPIサーバーで `Ctrl+C` を押し、DBは `docker compose stop db` で停止します。`docker compose down` はコンテナを削除しますが、DBデータのボリュームは保持します。
 
 DBコンテナへの接続確認:
 
@@ -51,8 +51,7 @@ docker compose exec db psql -U word_explainer -d word_explainer \
 保存APIを試すときは、表示されたカテゴリIDを使います。APIサーバーを起動します。
 
 ```bash
-source .venv/bin/activate
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
+make run
 ```
 
 別のターミナルから保存APIを呼びます。`category_id`は、カテゴリ登録時に表示されたIDに置き換えてください。
