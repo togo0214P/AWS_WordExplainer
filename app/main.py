@@ -3,7 +3,9 @@
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.routers.categories import router as categories_router
 from app.routers.entries import router as entries_router
 from app.routers.explanations import router as explanations_router
@@ -14,6 +16,13 @@ app = FastAPI(
     title="AWS Word Explainer API",
     description="単語解説APIの開発用スケルトンです。",
     version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(settings.cors_allowed_origins),
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type"],
 )
 
 

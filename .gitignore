@@ -2,3 +2,7 @@ __pycache__/
 *.py[cod]
 .venv/
 .env
+/view/node_modules/
+/view/dist/
+/view/.env.*
+!/view/.env.example
