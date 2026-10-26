@@ -82,6 +82,12 @@ ORDER BY e.id;
 
 `.env` の `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASSWORD` がAPIのDB接続設定です。Composeも同じ設定を使います。Gemini連携では `GEMINI_API_KEY` と `GEMINI_MODEL` を使います。作成したAPIキーはローカルの `.env` に設定し、`.env.example` やGitHub、ソースコードに書かないでください。`.env` はGit管理対象外です。`cp -n` は既存の `.env` を上書きしません。
 
+## ブラウザ画面
+
+TypeScript・React・Viteで作成した画面を `view/` に配置しています。初回に `cd view && npm ci` を実行した後、APIを `make run`、画面を別のターミナルで `make view` で起動します。画面のURLは `http://127.0.0.1:5173` です。
+
+`make view-build` はS3配置用の静的ファイルを `view/dist/` に生成します。API接続先・CORS設定・操作手順は [view/README.md](view/README.md) を参照してください。
+
 ## curlで疎通確認
 
 別のターミナルからヘルスチェックを呼び出します。
