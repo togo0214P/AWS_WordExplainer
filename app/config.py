@@ -20,6 +20,9 @@ class Settings:
     db_password: str = os.getenv("DB_PASSWORD", os.getenv("POSTGRES_PASSWORD", ""))
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "").strip()
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
+    explanation_provider: str = os.getenv("EXPLANATION_PROVIDER", "openai").strip().lower()
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "").strip()
+    openai_model: str = os.getenv("OPENAI_MODEL", "").strip()
     cors_allowed_origins: tuple[str, ...] = tuple(
         origin.strip()
         for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")

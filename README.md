@@ -128,7 +128,7 @@ docker compose exec db psql -U word_explainer -d word_explainer \
   -c "SELECT id, deleted_at, updated_at FROM entries WHERE id = 1;"
 ```
 
-説明生成APIはGemini APIを呼び出して説明候補を返します。`GEMINI_API_KEY` が `.env` に設定されている必要があります。候補の生成だけでは `entries` に保存されません。
+説明生成APIはGeminiまたはOpenAIを呼び出して説明候補を返します。候補の生成だけでは `entries` に保存されません。
 
 ```bash
 curl -i -X POST http://localhost:8080/api/explanations/generate \
@@ -138,14 +138,37 @@ curl -i -X POST http://localhost:8080/api/explanations/generate \
 
 `200 OK` と、入力単語・カテゴリID・カテゴリ名・説明を含むJSONが返ります。カテゴリIDとカテゴリ名は、現在のDBに登録されているカテゴリに応じて変わります。
 
-実API接続を確認するには、プロジェクトルートの `.env` に次の設定を入れてからサーバーを起動します。`GEMINI_MODEL` は例として現在のFlashモデルを指定しています。
+プロジェクトルートの `.env` で生成プロバイダーを選びます。未指定の場合はOpenAIです。Geminiを使う場合は明示的に指定します。
 
 ```env
+EXPLANATION_PROVIDER=gemini
 GEMINI_API_KEY=自分のGemini APIキー
 GEMINI_MODEL=gemini-3.8-flash
 ```
 
-生成された候補のカテゴリID・名前が、登録済みカテゴリと一致することをサーバーが確認して返します。Geminiの応答が不正、または外部APIに失敗した場合は `502 Bad Gateway`、キー未設定の場合は `503 Service Unavailable` です。
+OpenAIを使う場合は、Structured Outputsに対応し利用権限のあるモデルを指定します。
+
+```env
+EXPLANATION_PROVIDER=openai
+OPENAI_API_KEY=自分のOpenAI APIキー
+OPENAI_MODEL=利用するモデル名
+```
+
+`.env` はサーバー側だけで管理し、キーをGitや画面、ログに含めないでください。自動的なプロバイダー切り替えは行いません。生成された候補のカテゴリID・名前はサーバーが登録済みカテゴリと照合します。外部APIの失敗や不正な応答には `502 Bad Gateway`、キー・モデル未設定や不明なプロバイダーには `503 Service Unavailable` を返します。
+
+OpenAIへの応答待ちは60秒、再試行は0回です。Geminiは60秒で1回試行します。CloudFrontのオリジン応答タイムアウトやALBのアイドルタイムアウトがそれより短い場合、生成が完了する前に画面へ504が返ることがあります。AWSコンソールで各設定を確認し、必要に応じて調整してください。モデルの混雑によるエラーは待機時間の変更だけでは解消しません。
+
+EC2では、変更したコードを反映した後、仮想環境の依存関係と `.env` を更新し、サービスを再起動します。
+
+```bash
+cd ~/AWS_WordExplainer
+.venv/bin/pip install -r requirements.txt
+# .env に利用するプロバイダーの設定を追加する
+sudo systemctl restart word-explainer-api
+sudo journalctl -u word-explainer-api -f
+```
+
+別のEC2ターミナルで上記のcurlを実行し、その後CloudFrontの画面からも説明生成を確認します。実APIの利用には、プロバイダー側でAPIキーと利用可能なモデルを用意してください。
 
 空の単語や100文字を超える単語は `400 Bad Request`、カテゴリが未登録の場合は `503 Service Unavailable` を返します。生成候補を確認した後、利用者が承諾した内容を `POST /api/entries` に送ると保存されます。
 

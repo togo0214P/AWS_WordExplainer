@@ -6,6 +6,7 @@ import psycopg
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from google.genai.errors import APIError
+from openai import APIError as OpenAIAPIError
 from pydantic import ValidationError
 
 from app.config import settings
@@ -83,6 +84,13 @@ def generate_explanation(
             error.code,
             error.status,
             message,
+        )
+        return _generation_failed()
+    except OpenAIAPIError as error:
+        logger.error(
+            "OpenAI API request failed (type=%s, http_status=%s)",
+            type(error).__name__,
+            getattr(error, "status_code", None),
         )
         return _generation_failed()
     except Exception as error:
