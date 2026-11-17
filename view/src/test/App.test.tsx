@@ -3,6 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import App from "../App";
 
+vi.mock("../auth/session", () => ({
+  configurationError: "",
+  takeLogoutWarning: () => "",
+  setExpiryHandler: () => {},
+  initialize: vi.fn(async () => ({ profile: { sub: "test-user" } })),
+  accessToken: async () => "test-access-token",
+  requestSignal: () => new AbortController().signal,
+  unauthorized: () => {},
+  login: async () => {},
+  logout: async () => {},
+}));
+
 const candidate = {
   word: "EC2",
   category_id: 1,
@@ -89,12 +101,14 @@ describe("説明候補の承諾と保存", () => {
     const fetchMock = setupApi();
     const user = userEvent.setup();
     render(<App />);
+    await screen.findByLabelText("単語");
     await user.type(screen.getByLabelText("単語"), "  EC2  ");
     await user.click(screen.getByRole("button", { name: "説明を生成する" }));
     await screen.findByRole("heading", { name: "この内容で登録しますか？" });
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
     ).toHaveLength(1);
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ Authorization: "Bearer test-access-token" });
     expect(fetchMock.mock.calls[0][1]?.body).toBe(
       JSON.stringify({ word: "EC2" }),
     );
@@ -113,6 +127,7 @@ describe("説明候補の承諾と保存", () => {
     const fetchMock = setupApi();
     const user = userEvent.setup();
     render(<App />);
+    await screen.findByLabelText("単語");
     await user.type(screen.getByLabelText("単語"), "EC2");
     await user.click(screen.getByRole("button", { name: "説明を生成する" }));
     const saveButton = await screen.findByRole("button", {
@@ -147,6 +162,7 @@ describe("説明候補の承諾と保存", () => {
     setupApi({ generationError: true });
     const user = userEvent.setup();
     render(<App />);
+    await screen.findByLabelText("単語");
     await user.type(screen.getByLabelText("単語"), "EC2");
     await user.click(screen.getByRole("button", { name: "説明を生成する" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(

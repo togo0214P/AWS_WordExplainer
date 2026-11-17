@@ -1097,3 +1097,11 @@ h1 em {
     transition-duration: 0.01ms !important;
   }
 }
+
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth-card { max-width: 480px; width: 100%; padding: 36px; }
+.auth-card h1 { margin: 16px 0; }
+.auth-card p { line-height: 1.7; }
+.auth-card .button { margin-top: 16px; }
+.auth-error { color: #a23232; }
+.auth-user { display: flex; align-items: center; gap: 12px; overflow-wrap: anywhere; }

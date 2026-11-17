@@ -56,10 +56,18 @@ docker compose exec db psql -U word_explainer -d word_explainer \
 make run
 ```
 
-別のターミナルから保存APIを呼びます。`category_id`は、カテゴリ登録時に表示されたIDに置き換えてください。
+業務APIにはCognitoのアクセストークンが必要です。確認用の有効なアクセストークンを、別のターミナルで画面表示せずに設定します。
+
+```bash
+read -rsp 'Cognitoアクセストークン: ' COGNITO_ACCESS_TOKEN
+echo
+```
+
+この変数を設定した同じターミナルから保存APIを呼びます。`category_id`は、カテゴリ登録時に表示されたIDに置き換えてください。
 
 ```bash
 curl -i -X POST http://localhost:8080/api/entries \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"word":"サブネット","category_id":1,"explanation":"ネットワークを分割した領域です。"}'
 ```
@@ -86,9 +94,21 @@ ORDER BY e.id;
 
 ## ブラウザ画面
 
-TypeScript・React・Viteで作成した画面を `view/` に配置しています。初回に `cd view && npm ci` を実行した後、APIを `make run`、画面を別のターミナルで `make view` で起動します。画面のURLは `http://127.0.0.1:5173` です。
+TypeScript・React・Viteで作成した画面を `view/` に配置しています。初回に `cd view && npm ci` を実行した後、APIを `make run`、画面を別のターミナルで `make view` で起動します。Cognitoに登録した画面URLは `http://localhost:5173/` です。
 
 `make view-build` はS3配置用の静的ファイルを `view/dist/` に生成します。API接続先・CORS設定・操作手順は [view/README.md](view/README.md) を参照してください。
+
+### Cognito認証
+
+APIの `.env` に `COGNITO_REGION`、`COGNITO_USER_POOL_ID`、`COGNITO_CLIENT_ID` を設定します。ユーザープールIDとクライアントIDは画面の設定と一致させてください。これらの値は秘密情報ではありません。ユーザーのパスワード、トークン、OpenAI APIキーはソースコードやログに含めないでください。
+
+業務APIはCognitoのアクセストークンを検証し、未認証または無効なトークンには401を返します。認証設定や公開鍵の取得に問題がある場合は503を返し、APIへのアクセスは許可しません。`GET /health` はALBのヘルスチェックに使うため認証不要です。単語帳とカテゴリは認証済みの全ユーザーで共有します。
+
+Cognitoのログアウトとリフレッシュトークンの失効を実行しても、FastAPIの署名・有効期限によるオフライン検証では失効済みのアクセストークンを期限前に検出できません。アクセストークンの有効期間を短めに設定し、即時失効が必要な場合はサーバー側で失効状態を管理してください。
+
+AWS環境ではCloudFrontの `/api/*` で `Authorization` ヘッダーと検索クエリをALBへ転送し、APIのキャッシュを無効にします。認証トークンをAWS公開環境で送信する前に、CloudFront→ALB間をHTTPSに設定してください。ALB→EC2間の通信方式も環境に応じて確認してください。
+
+EC2に反映するときは、依存関係をインストールし、EC2の `.env` にCognito設定を追加してサービスを再起動します。独自ドメイン、ALB証明書、CloudFrontの設定と、ローカル・AWSでの実ログイン確認は別途必要です。
 
 ## curlで疎通確認
 
@@ -103,22 +123,23 @@ curl -i http://localhost:8080/health
 登録済みカテゴリは次のAPIで取得できます。カテゴリが0件の場合も `200 OK` と `{"categories": []}` を返すため、案内表示はView側で行います。
 
 ```bash
-curl -i http://localhost:8080/api/categories
+curl -i -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" http://localhost:8080/api/categories
 ```
 
 エントリーは、単語の部分一致やカテゴリIDで絞り込めます。どちらも指定しない場合は未削除のエントリーを一覧で返します。
 
 ```bash
 curl -i --get http://localhost:8080/api/entries \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" \
   --data-urlencode 'word=サブネット'
 
-curl -i 'http://localhost:8080/api/entries?category_id=1'
+curl -i -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" 'http://localhost:8080/api/entries?category_id=1'
 ```
 
 エントリーを論理削除するには、対象のIDを指定します。成功時は`204 No Content`が返り、行はDBに残りますが、通常の検索結果には含まれなくなります。
 
 ```bash
-curl -i -X DELETE http://localhost:8080/api/entries/1
+curl -i -X DELETE -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" http://localhost:8080/api/entries/1
 ```
 
 削除日時はpsqlで確認できます。
@@ -132,6 +153,7 @@ docker compose exec db psql -U word_explainer -d word_explainer \
 
 ```bash
 curl -i -X POST http://localhost:8080/api/explanations/generate \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"word":"サブネット"}'
 ```
@@ -185,6 +207,7 @@ docker compose exec db psql -U word_explainer -d word_explainer \
 
 ```bash
 curl -i -X POST http://localhost:8080/api/entries \
+  -H "Authorization: Bearer $COGNITO_ACCESS_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"word":"サブネット","category_id":1,"explanation":"ネットワークを分割した領域です。"}'
 ```

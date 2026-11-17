@@ -11,7 +11,7 @@ cd view
 npm ci
 ```
 
-リポジトリのルートでAPIを起動します。DB、テーブル、カテゴリとGemini APIキーはAPI側の手順で用意してください。
+リポジトリのルートでAPIを起動します。DB、テーブル、カテゴリ、AIプロバイダーとCognitoの設定はAPI側の手順で用意してください。
 
 ```bash
 make run
@@ -23,7 +23,13 @@ make run
 make view
 ```
 
-`http://127.0.0.1:5173` を開きます。開発時の `/api` リクエストはViteが `http://127.0.0.1:8080` に転送します。停止は各ターミナルで `Ctrl+C` を押します。
+`http://localhost:5173/` を開きます。CognitoのコールバックURLに登録したURLと一致させてください。開発時の `/api` リクエストはViteが `http://127.0.0.1:8080` に転送します。停止は各ターミナルで `Ctrl+C` を押します。
+
+## Cognito設定
+
+`view/.env.example` を参考に `view/.env.local` を作り、Cognitoのリージョン、ユーザープールID、アプリクライアントID、Cognitoドメインを設定します。実行中のViteへ変更を反映するときは再起動します。ユーザープールは認可コードフロー、PKCE、公開SPAクライアントを使用し、コールバックURLとサインアウトURLに `http://localhost:5173/` および公開画面のルートURLを登録してください。
+
+API側の `.env` にも同じリージョン、ユーザープールID、クライアントIDを設定します。サインイン・サインアウトとトークン検証の動作確認には実際のCognitoユーザーが必要です。
 
 ## 画面の操作
 
@@ -36,10 +42,10 @@ make view
 
 ## S3用のビルド
 
-`view/.env.production` を作り、ブラウザから接続できるHTTPSのAPI配信元を指定します。
+`view/.env.production` にCognito設定を用意します。画面とAPIを同じCloudFrontドメインで配信する場合、API接続先は空欄とし、`/api` をALBへ転送します。
 
 ```env
-VITE_API_BASE_URL=https://api.example.com
+VITE_API_BASE_URL=
 ```
 
 リポジトリのルートで次を実行します。
@@ -49,6 +55,8 @@ make view-build
 ```
 
 `view/dist/` 内のファイルをS3の配信元へアップロードします。`view/` のソースや `node_modules/` をアップロードする必要はありません。API接続先はビルド時に埋め込まれるため、変更後は再ビルドしてください。
+
+Viteでは `.env.local` が `.env.production` より優先されます。環境ごとにCognitoを使い分ける場合は、ビルド前に `.env.local` の値と実際のビルド設定を確認してください。公開画面のURLと認証情報はブラウザに埋め込まれます。
 
 APIサーバーの `.env` では、画面の配信元をCORS許可します。末尾のスラッシュやURLパスを含めずに指定します。
 
