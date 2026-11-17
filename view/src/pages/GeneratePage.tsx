@@ -119,30 +119,6 @@ export function GeneratePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
             <span>✳</span> 候補を確認し、登録するまで保存されません。
           </p>
         </section>
-        <aside className="guide-card">
-          <p className="section-label">
-            <Icon name="book" /> HOW IT WORKS
-          </p>
-          <h2>
-            ひとつの言葉から、
-            <br />
-            理解を広げる。
-          </h2>
-          <ol>
-            <li>
-              <span>用語を入力する</span>
-            </li>
-            <li>
-              <span>説明とカテゴリを確認</span>
-            </li>
-            <li>
-              <span>承諾してライブラリへ</span>
-            </li>
-          </ol>
-          <span className="guide-art" aria-hidden="true">
-            Aa.
-          </span>
-        </aside>
       </div>
       {candidate && (
         <section
