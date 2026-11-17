@@ -15,6 +15,7 @@ from google.genai.errors import APIError
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.auth.cognito import get_current_user
 from app.repositories import entries
 from app.routers import explanations
 from app.schemas.categories import CategoryResponse
@@ -57,6 +58,7 @@ class StubGenerator:
 class GenerateExplanationApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.generator = StubGenerator()
+        app.dependency_overrides[get_current_user] = lambda: {"sub": "test-user"}
         app.dependency_overrides[get_explanation_generator] = lambda: self.generator
         self.categories_patcher = patch.object(
             explanations,
@@ -277,6 +279,8 @@ class GeminiGeneratorTests(unittest.TestCase):
 
 class OpenAIGeneratorTests(unittest.TestCase):
     def setUp(self) -> None:
+        app.dependency_overrides[get_current_user] = lambda: {"sub": "test-user"}
+        self.addCleanup(app.dependency_overrides.clear)
         self.generator = OpenAIExplanationGenerator("test-key", "test-model")
 
     def test_unset_provider_defaults_to_openai(self) -> None:
@@ -383,7 +387,7 @@ class OpenAIGeneratorTests(unittest.TestCase):
                     explanations.logger, level="ERROR"
                 ) as logs:
                     result = TestClient(app).post("/api/explanations/generate", json={"word": "EC2"})
-                app.dependency_overrides.clear()
+                app.dependency_overrides.pop(get_explanation_generator, None)
                 self.assertEqual(result.status_code, 502)
                 self.assertIn(f"http_status={code}", logs.output[0])
                 self.assertNotIn("secret-value", str(logs.output))

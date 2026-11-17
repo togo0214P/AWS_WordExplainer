@@ -13,6 +13,9 @@ load_dotenv(_PROJECT_ROOT / ".env")
 
 @dataclass(frozen=True)
 class Settings:
+    cognito_region: str = os.getenv("COGNITO_REGION", "").strip()
+    cognito_user_pool_id: str = os.getenv("COGNITO_USER_POOL_ID", "").strip()
+    cognito_client_id: str = os.getenv("COGNITO_CLIENT_ID", "").strip()
     db_host: str = os.getenv("DB_HOST", "localhost")
     db_port: int = int(os.getenv("DB_PORT", "5432"))
     db_name: str = os.getenv("DB_NAME", "word_explainer")

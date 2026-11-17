@@ -1,4 +1,5 @@
 import type { Candidate, Category, Entry } from "./types";
+import { accessToken, requestSignal, unauthorized } from "./auth/session";
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
@@ -15,10 +16,15 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
+  const signal = AbortSignal.any([requestSignal(), ...(init.signal ? [init.signal] : [])]);
+  const token = await accessToken();
+  if (signal.aborted) throw new DOMException("Session ended", "AbortError");
   try {
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
+      signal,
       headers: {
+        Authorization: `Bearer ${token}`,
         ...(init.body ? { "Content-Type": "application/json" } : {}),
         ...init.headers,
       },
@@ -29,6 +35,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       "APIに接続できません。APIサーバーと接続先の設定を確認してください。",
     );
   }
+  if (signal.aborted) throw new DOMException("Session ended", "AbortError");
+  if (response.status === 401) unauthorized();
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new ApiError(
