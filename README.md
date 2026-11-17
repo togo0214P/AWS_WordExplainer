@@ -4,6 +4,35 @@
 
 AWSへ配置する際の全体構成・VPC構成・通信経路は [AWS構成図](doc/aws-architecture.md) を参照してください。
 
+## Docker Composeで起動
+
+DockerとDocker Composeを使って、PostgreSQL、FastAPI、React画面をまとめて起動できます。CognitoとOpenAI/Geminiにはインターネット接続が必要です。
+
+1. ルートの `.env` を作成し、`DB_PASSWORD`、`COGNITO_REGION`、`COGNITO_USER_POOL_ID`、`COGNITO_CLIENT_ID` と利用するAIプロバイダーのAPIキー・モデルを設定します。既存の `.env` は上書きしません。
+
+   ```bash
+   cp -n .env.example .env
+   ```
+
+2. `view/.env.local` を作成し、同じCognitoのリージョン、ユーザープールID、アプリクライアントIDとドメインを `view/.env.example` の形式で設定します。これらはブラウザへ公開される値です。秘密情報を `VITE_` 変数に入れないでください。
+
+3. 起動します。
+
+   ```bash
+   docker compose up -d --build
+   docker compose ps
+   ```
+
+   DBが準備できると `db-init` がテーブルと初期カテゴリを作成し、APIと画面が順番に起動します。`db-init` は終了コード0で終了する一回限りの処理です。DBデータは `postgres_data` ボリュームに保持されます。初期化SQLは繰り返し実行しても既存の同名カテゴリを重複追加しません。
+
+4. `http://localhost:5173/` を開きます。Cognitoに同じコールバックURLとサインアウトURLを登録してください。APIのヘルスチェックは `curl http://localhost:8080/health` で確認できます。
+
+ログは `docker compose logs -f`、停止は `docker compose stop` です。再起動は `docker compose up -d` を使います。APIとReactのソースはマウントされ、変更が開発サーバーに反映されます。依存関係やDockerfileを変えた場合は `docker compose up -d --build` を再実行してください。
+
+APIのDB接続先はCompose内では自動的に `db:5432` に設定されます。ホストに公開するDBポートは `DB_PORT`、APIと画面はそれぞれ `API_PORT`、`VIEW_PORT` で変更できます。`VIEW_PORT` を変更する場合は対応するCognitoのURL登録も必要です。`docker compose down -v` はDBボリュームを削除するため、データを残す場合は実行しないでください。
+
+ローカルDBのユーザー名・パスワードはボリュームの初回作成時に設定されます。後から `.env` を変更しても、既存DB内のユーザー情報は自動変更されません。Dockerfileはローカル開発用です。S3配信用の静的ファイルは従来どおり `make view-build` で作成します。
+
 ## セットアップと起動
 
 リポジトリのルートでローカル設定ファイルを作り、仮想環境と依存パッケージを準備します。
